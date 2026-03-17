@@ -1,5 +1,3 @@
-import React from "react";
-
-export default function page() {
+export default function MensProducts() {
   return <div>Product Listing</div>;
 }

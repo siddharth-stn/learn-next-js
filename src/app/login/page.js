@@ -1,0 +1,8 @@
+export const metadata = {
+  title: "Login",
+  description: "This is the login page",
+};
+
+export default function Login() {
+  return <div>This is the login page</div>;
+}

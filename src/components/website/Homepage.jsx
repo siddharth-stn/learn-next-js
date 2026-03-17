@@ -1,39 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import ProductCard from "@/components/website/common/ProductCard";
-import axios from "axios";
-import { toast } from "react-toastify";
 
-export default function Homepage() {
-  const [menProducts, setMenProducts] = useState([]);
-  const [ladiesProducts, setLadiesProducts] = useState([]);
-
-  useEffect(() => {
-    axios
-      .get(`${process.env.NEXT_PUBLIC_API_URL}/products.php`, {
-        params: { limit: 8, categories: "mens-shirts, mens-shoes" },
-      })
-      .then((result) => {
-        setMenProducts(result.data.data);
-      })
-      .catch((err) => {
-        toast.error(err);
-      });
-  }, []);
-
-  useEffect(() => {
-    axios
-      .get(`${process.env.NEXT_PUBLIC_API_URL}/products.php`, {
-        params: { limit: 8, categories: "beauty, tops" },
-      })
-      .then((result) => {
-        setLadiesProducts(result.data.data);
-      })
-      .catch((err) => {
-        toast.error(err);
-      });
-  }, []);
+export default function Homepage({ menData, ladiesData }) {
+  const [menProducts, setMenProducts] = useState(menData);
+  const [ladiesProducts, setLadiesProducts] = useState(ladiesData);
 
   return (
     <>
