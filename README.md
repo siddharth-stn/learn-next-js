@@ -36,11 +36,14 @@ After setup, clean up and organize like this:
 src/
 ├── app/                    # ONLY routing files go here
 │   ├── layout.js           # Root layout (wraps everything)
-│   ├── page.js             # Homepage (/)
 │   ├── favicon.ico
+│   ├── login/              # Outside route groups (no header/footer)
+│   │   └── page.js
 │   ├── (website)/          # Route group (no URL impact)
 │   │   ├── layout.js       # Layout for this group
 │   │   ├── page.js         # This group's homepage
+│   │   ├── about-us/
+│   │   │   └── page.js
 │   │   └── mens/
 │   │       └── [...slug]/
 │   │           └── page.js # Dynamic catch-all route
@@ -49,17 +52,24 @@ src/
 │           └── page.js
 ├── components/             # All your components
 │   └── website/
-│       ├── CommonLayout.jsx
+│       ├── CommonLayout.jsx  # Layout wrapper (not in common/)
 │       ├── Homepage.jsx
-│       └── common/
+│       └── common/           # Reusable UI pieces
 │           ├── Header.jsx
 │           ├── Footer.jsx
 │           └── ProductCard.jsx
-└── styles/                 # All your CSS files
-    └── website.css
+├── services/               # API call functions
+│   └── HomePageAPI.js
+├── styles/                 # All your CSS files
+│   └── website.css
+└── proxy.js                # Middleware (auth redirects etc.)
 ```
 
-**Rule of thumb:** `app/` folder = routing only. Components and styles go outside `app/`.
+**Rule of thumb:**
+
+- `app/` folder = routing only. Components, styles, and services go outside `app/`.
+- Pages that don't need a group's layout (like login) go directly under `app/`, outside any route group.
+- API/service functions go in `src/services/`, NOT inside `app/`.
 
 ---
 
@@ -247,7 +257,95 @@ export default function Counter() {
 
 ---
 
-## 8. Metadata (Page Titles & SEO)
+## 8. Server-Side Data Fetching
+
+Fetch data on the server in `page.js` and pass it to client components as props:
+
+```jsx
+// src/services/HomePageAPI.js (runs on server)
+import axios from "axios";
+
+export const menProducts = () => {
+  return axios
+    .get(`${process.env.NEXT_PUBLIC_API_URL}/products.php`, {
+      params: { limit: 8, categories: "mens-shirts, mens-shoes" },
+    })
+    .then((result) => result.data.data)
+    .catch((err) => {
+      console.error(err); // NOT toast.error — toast won't work on server
+      return [];
+    });
+};
+```
+
+```jsx
+// app/(website)/page.js (server component)
+import Homepage from "@/components/website/Homepage";
+import { menProducts } from "@/services/HomePageAPI";
+
+export default async function Home() {
+  const data = await menProducts();
+  return <Homepage menData={data} />;
+}
+```
+
+```jsx
+// components/website/Homepage.jsx (client component)
+"use client";
+import { useState } from "react";
+
+export default function Homepage({ menData }) {
+  const [products, setProducts] = useState(menData);
+  // now you can use state, effects, and browser features
+}
+```
+
+**The pattern:** Server fetches data → passes as props → Client component receives and manages it.
+
+**Do NOT use `toast`, `localStorage`, `window`, or any browser API in service files.** They run on the server. Use `console.error` for error logging there.
+
+---
+
+## 9. Proxy / Middleware (Route Protection)
+
+Create `src/proxy.js` to intercept requests before they reach your pages. Use it for auth redirects, route protection, etc.
+
+```jsx
+import { NextResponse } from "next/server";
+
+export default function proxy(request) {
+  const { pathname } = request.nextUrl;
+
+  // Skip static files and Next.js internals
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/favicon.ico") ||
+    pathname.match(/\.(css|js|png|jpg|jpeg|svg|gif|ico|woff|woff2)$/)
+  ) {
+    return NextResponse.next();
+  }
+
+  let status = 1; // 1 = logged in, anything else = not logged in
+
+  // Not logged in → force to login page
+  if (status != 1 && !pathname.startsWith("/login")) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  // Logged in → don't show login page
+  if (status == 1 && pathname.startsWith("/login")) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
+  return NextResponse.next();
+}
+```
+
+**Important:** Always skip `/_next` and static file paths, otherwise CSS/JS won't load on redirected pages.
+
+---
+
+## 10. Metadata (Page Titles & SEO)
 
 Export a `metadata` object from any `layout.js` or `page.js`:
 
@@ -263,7 +361,7 @@ export const metadata = {
 
 ---
 
-## 9. CSS / Styling
+## 11. CSS / Styling
 
 ### Option 1: Tailwind CSS (recommended, already set up)
 
@@ -301,7 +399,7 @@ import styles from "./Button.module.css";
 
 ---
 
-## 10. Installing & Using Packages
+## 12. Installing & Using Packages
 
 ```bash
 npm install axios react-toastify
@@ -318,7 +416,7 @@ Remember: if the package needs browser features (like toast notifications), the 
 
 ---
 
-## 11. Environment Variables
+## 13. Environment Variables
 
 Create a `.env.local` file in the root:
 
@@ -339,7 +437,7 @@ process.env.SECRET_KEY; // server components/API routes only
 
 ---
 
-## 12. Common Commands
+## 14. Common Commands
 
 | Command                      | What it does                      |
 | ---------------------------- | --------------------------------- |
@@ -351,7 +449,7 @@ process.env.SECRET_KEY; // server components/API routes only
 
 ---
 
-## 13. Quick Setup Checklist for New Projects
+## 15. Quick Setup Checklist for New Projects
 
 1. Run `npx create-next-app@latest project-name`
 2. Delete default boilerplate from `app/page.js` and `app/globals.css`
@@ -359,19 +457,33 @@ process.env.SECRET_KEY; // server components/API routes only
 4. Create `src/styles/` folder for CSS files
 5. Set up route groups in `app/` if you need multiple layouts — `(website)`, `(admin)`, etc.
 6. Create `layout.js` in each route group with its own Header/Footer
-7. Add `.env.local` for API URLs and secrets
-8. Install packages you need (`npm install axios react-toastify` etc.)
-9. Start building pages inside `app/` and components inside `components/`
+7. Create `src/services/` folder for API call functions
+8. Add `src/proxy.js` if you need route protection/auth redirects
+9. Add `.env.local` for API URLs and secrets
+10. Install packages you need (`npm install axios react-toastify` etc.)
+11. Start building pages inside `app/` and components inside `components/`
 
 ---
 
-## 14. Confusing Parts Clarified
+## 16. Naming Conventions
+
+- **Page components:** PascalCase — `function Login()`, `function AboutUs()`, NOT `function page()`
+- **Files in `app/`:** always `page.js`, `layout.js` (lowercase, Next.js requirement)
+- **Component files:** PascalCase — `Header.jsx`, `ProductCard.jsx`
+- **Service files:** camelCase or PascalCase — `HomePageAPI.js`
+- **You don't need `import React`** — Next.js auto-imports it
+
+---
+
+## 17. Confusing Parts Clarified
 
 ### "Where does my component go?"
 
 - Is it a **page** that users visit via URL? --> `app/` folder as `page.js`
-- Is it a **reusable UI piece** (card, button, header)? --> `src/components/`
+- Is it a **reusable UI piece** (card, button, header)? --> `src/components/common/`
 - Is it a **layout wrapper**? --> `src/components/` (not inside `common/`)
+- Is it an **API call function**? --> `src/services/`
+- Is it **middleware/auth logic**? --> `src/proxy.js`
 
 ### "layout.js vs page.js?"
 
@@ -402,3 +514,19 @@ You forgot `"use client"` at the top of the file. Server Components can't use ho
 ### "Can I have two page.js at the same level?"
 
 No. Each folder can only have ONE `page.js`. Use route groups `()` to split them.
+
+### "Where should login/signup pages go?"
+
+Outside route groups, directly under `app/`. They don't need the site's header/footer. Pages inside a route group inherit that group's layout.
+
+### "Why is my CSS not loading after redirect?"
+
+Your proxy/middleware is redirecting CSS/JS requests too. Always skip `/_next` and static file extensions in your `proxy.js`.
+
+### "Where do I put API call functions?"
+
+In `src/services/`, NOT inside `app/`. The `app/` folder is only for routing. Service files run on the server, so don't use browser APIs (`toast`, `localStorage`, etc.) in them.
+
+### "Can I use toast.error in a service file?"
+
+No. Service files called from server components run on the server. `toast` is browser-only. Use `console.error` for server-side error logging. Handle toast notifications in your client components instead.
