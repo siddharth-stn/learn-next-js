@@ -5,11 +5,12 @@ import { useDispatch, useSelector } from "react-redux";
 
 export default function Header() {
   const isLogin = useSelector((data) => data.login.isLogin);
+  const cart = useSelector((data) => data.cart.cart_items);
   const dispatch = useDispatch();
 
   return (
     <>
-      <header>
+      <header className="sticky top-0">
         <nav className="bg-white border-gray-200 px-4 lg:px-6 py-2.5 dark:bg-gray-800">
           <div className="flex flex-wrap justify-between items-center mx-auto max-w-7xl">
             <Link href="/" className="flex items-center">
@@ -33,7 +34,7 @@ export default function Header() {
                 href="#"
                 className="text-white bg-indigo-700 hover:bg-indigo-800 focus:ring-4 focus:ring-primary-300 font-medium rounded-lg text-sm px-4 lg:px-5 py-2 lg:py-2.5 mr-2 dark:bg-indigo-600 dark:hover:bg-indigo-700 focus:outline-none dark:focus:ring-indigo-800"
               >
-                ViewCart(0)
+                ViewCart({cart.length})
               </button>
 
               {isLogin ? (

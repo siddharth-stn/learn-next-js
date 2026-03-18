@@ -361,6 +361,25 @@ export default function Header() {
 }
 ```
 
+### Persisting State in Cookies
+
+`js-cookie` stores everything as a **string**. When saving arrays/objects, you must use `JSON.stringify()` to save and `JSON.parse()` to read:
+
+```jsx
+// SAVING — convert to JSON string
+Cookies.set("cart", JSON.stringify(finalCart));
+
+// READING — parse back to array/object, with fallback for first visit
+const cart = Cookies.get("cart") ? JSON.parse(Cookies.get("cart")) : [];
+```
+
+**Common mistakes:**
+- `Cookies.set("cart", finalCart)` — saves `[object Object]` (garbage), NOT the actual data
+- `JSON.parse(Cookies.get("cart"))` without checking first — crashes when cookie doesn't exist (`JSON.parse(undefined)` throws SyntaxError)
+- If you see `"[object Obj"... is not valid JSON` error — clear the bad cookie from browser DevTools → Application → Cookies, then refresh
+
+For simple values (like login status `0` or `1`), you don't need JSON — `Cookies.set("login", 1)` and `Cookies.get("login")` work fine.
+
 **Key points:**
 - `useSelector` = read state from the store
 - `useDispatch` = get the dispatch function to trigger actions
@@ -710,3 +729,7 @@ No. One app = one store. But you can have as many **slices** as you want. Each s
 ### "Where should Redux store files go?"
 
 In `src/reduxStore/`, NOT inside `app/`. The `app/` folder is only for routing files (`page.js`, `layout.js`, etc.).
+
+### "Why am I getting `[object Obj]... is not valid JSON` error?"
+
+You saved an array/object to a cookie without `JSON.stringify()`. `Cookies.set("cart", myArray)` converts it to the string `"[object Object]"`. When you later try `JSON.parse("[object Object]")`, it crashes. Fix: clear the bad cookie from browser (DevTools → Application → Cookies → delete it), and use `JSON.stringify()` when saving and `JSON.parse()` when reading.
