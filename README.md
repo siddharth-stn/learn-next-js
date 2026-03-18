@@ -58,8 +58,12 @@ src/
 │           ├── Header.jsx
 │           ├── Footer.jsx
 │           └── ProductCard.jsx
+├── reduxStore/             # Redux store & slices (one store per app)
+│   ├── store.js
+│   ├── loginSlice.jsx
+│   └── cartSlice.jsx
 ├── services/               # API call functions
-│   └── HomePageAPI.js
+│   └── homePageAPI.js
 ├── styles/                 # All your CSS files
 │   └── website.css
 └── proxy.js                # Middleware (auth redirects etc.)
@@ -70,6 +74,7 @@ src/
 - `app/` folder = routing only. Components, styles, and services go outside `app/`.
 - Pages that don't need a group's layout (like login) go directly under `app/`, outside any route group.
 - API/service functions go in `src/services/`, NOT inside `app/`.
+- Redux store and slices go in `src/reduxStore/`, NOT inside `app/`.
 
 ---
 
@@ -257,12 +262,120 @@ export default function Counter() {
 
 ---
 
-## 8. Server-Side Data Fetching
+## 8. Redux Toolkit (Global State Management)
+
+Redux Toolkit lets you manage global state (like login status, cart items) that multiple components need to access.
+
+### Install
+
+```bash
+npm install @reduxjs/toolkit react-redux js-cookie
+```
+
+`js-cookie` is optional — only needed if you want to persist state in cookies.
+
+### Step 1: Create a Slice
+
+A slice = one piece of state + its actions. Each slice goes in its own file inside `src/reduxStore/`.
+
+```jsx
+// src/reduxStore/loginSlice.jsx
+import { createSlice } from "@reduxjs/toolkit";
+import Cookies from "js-cookie";
+
+const initialState = {
+  isLogin: Cookies.get("login") || 0,
+};
+
+export const loginSlice = createSlice({
+  name: "login",
+  initialState,
+  reducers: {
+    login: (state) => {
+      state.isLogin = 1;
+      Cookies.set("login", 1);
+    },
+    logout: (state) => {
+      state.isLogin = 0;
+      Cookies.remove("login");
+    },
+  },
+});
+
+export const { login, logout } = loginSlice.actions;
+export default loginSlice.reducer;
+```
+
+### Step 2: Create the Store
+
+One store per app. All slices are combined here.
+
+```jsx
+// src/reduxStore/store.js
+import { configureStore } from "@reduxjs/toolkit";
+import loginSlice from "./loginSlice";
+import cartSlice from "./cartSlice";
+
+export const reduxStore = configureStore({
+  reducer: {
+    login: loginSlice,
+    cart: cartSlice,
+  },
+});
+```
+
+### Step 3: Wrap Your App with Provider
+
+The `<Provider>` must be in a Client Component (`"use client"`). Wrap it in your layout wrapper:
+
+```jsx
+// src/components/website/CommonLayout.jsx
+"use client";
+import { Provider } from "react-redux";
+import { reduxStore } from "@/reduxStore/store";
+
+export default function CommonLayout({ children }) {
+  return (
+    <Provider store={reduxStore}>
+      {children}
+    </Provider>
+  );
+}
+```
+
+### Step 4: Use State in Components
+
+```jsx
+import { useSelector, useDispatch } from "react-redux";
+import { login, logout } from "@/reduxStore/loginSlice";
+
+export default function Header() {
+  const isLogin = useSelector((state) => state.login.isLogin);
+  const dispatch = useDispatch();
+
+  return isLogin ? (
+    <button onClick={() => dispatch(logout())}>Logout</button>
+  ) : (
+    <button onClick={() => dispatch(login())}>Login</button>
+  );
+}
+```
+
+**Key points:**
+- `useSelector` = read state from the store
+- `useDispatch` = get the dispatch function to trigger actions
+- Only **one store** per app, but you can have **many slices**
+- `<Provider>` needs `"use client"` — it uses React context internally
+- Reading cookies at module level (`Cookies.get()`) causes a hydration warning because cookies don't exist on the server. The app still works, but you'll see a warning in the console.
+
+---
+
+## 9. Server-Side Data Fetching
 
 Fetch data on the server in `page.js` and pass it to client components as props:
 
 ```jsx
-// src/services/HomePageAPI.js (runs on server)
+// src/services/homePageAPI.js (runs on server)
 import axios from "axios";
 
 export const menProducts = () => {
@@ -276,16 +389,32 @@ export const menProducts = () => {
       return [];
     });
 };
+
+export const ladiesProducts = () => {
+  return axios
+    .get(`${process.env.NEXT_PUBLIC_API_URL}/products.php`, {
+      params: { limit: 8, categories: "beauty, tops" },
+    })
+    .then((result) => result.data.data)
+    .catch((err) => {
+      console.error(err);
+      return [];
+    });
+};
 ```
+
+You can export multiple functions from a single service file. Each function fetches different data.
 
 ```jsx
 // app/(website)/page.js (server component)
 import Homepage from "@/components/website/Homepage";
-import { menProducts } from "@/services/HomePageAPI";
+import { ladiesProducts, menProducts } from "@/services/homePageAPI";
 
 export default async function Home() {
-  const data = await menProducts();
-  return <Homepage menData={data} />;
+  const getMenProducts = await menProducts();
+  const getLadiesProducts = await ladiesProducts();
+
+  return <Homepage menData={getMenProducts} ladiesData={getLadiesProducts} />;
 }
 ```
 
@@ -294,8 +423,9 @@ export default async function Home() {
 "use client";
 import { useState } from "react";
 
-export default function Homepage({ menData }) {
-  const [products, setProducts] = useState(menData);
+export default function Homepage({ menData, ladiesData }) {
+  const [menProducts, setMenProducts] = useState(menData);
+  const [ladiesProducts, setLadiesProducts] = useState(ladiesData);
   // now you can use state, effects, and browser features
 }
 ```
@@ -306,7 +436,7 @@ export default function Homepage({ menData }) {
 
 ---
 
-## 9. Proxy / Middleware (Route Protection)
+## 10. Proxy / Middleware (Route Protection)
 
 Create `src/proxy.js` to intercept requests before they reach your pages. Use it for auth redirects, route protection, etc.
 
@@ -345,7 +475,7 @@ export default function proxy(request) {
 
 ---
 
-## 10. Metadata (Page Titles & SEO)
+## 11. Metadata (Page Titles & SEO)
 
 Export a `metadata` object from any `layout.js` or `page.js`:
 
@@ -361,15 +491,42 @@ export const metadata = {
 
 ---
 
-## 11. CSS / Styling
+## 12. Navigation with `next/link`
+
+Use `<Link>` from `next/link` instead of `<a>` for internal navigation. It does client-side navigation (faster, no full page reload).
+
+```jsx
+import Link from "next/link";
+
+<Link href="/">Home</Link>
+<Link href="/about-us">About Us</Link>
+<Link href="/mens/shirts">Men's Shirts</Link>
+```
+
+**When to use `<Link>` vs `<a>`:**
+- `<Link>` = internal pages (within your app)
+- `<a>` = external URLs (other websites)
+
+---
+
+## 13. CSS / Styling
 
 ### Option 1: Tailwind CSS (recommended, already set up)
 
-Just use classes directly:
+This project uses **Tailwind CSS v4**. The setup is simpler than v3 — just one import in your CSS file:
+
+```css
+/* src/styles/website.css */
+@import "tailwindcss";
+```
+
+Then use classes directly in JSX:
 
 ```jsx
 <h1 className="text-2xl font-bold text-red-500">Hello</h1>
 ```
+
+Tailwind v4 uses `@tailwindcss/postcss` instead of the old `tailwindcss` PostCSS plugin. This is already configured in the project.
 
 ### Option 2: CSS file per section
 
@@ -399,7 +556,7 @@ import styles from "./Button.module.css";
 
 ---
 
-## 12. Installing & Using Packages
+## 14. Installing & Using Packages
 
 ```bash
 npm install axios react-toastify
@@ -416,12 +573,12 @@ Remember: if the package needs browser features (like toast notifications), the 
 
 ---
 
-## 13. Environment Variables
+## 15. Environment Variables
 
-Create a `.env.local` file in the root:
+Create a `.env` file in the project root:
 
 ```
-NEXT_PUBLIC_API_URL=https://api.example.com
+NEXT_PUBLIC_API_URL=https://wscubetech.co/ecommerce-api
 SECRET_KEY=mysecretkey
 ```
 
@@ -435,9 +592,11 @@ process.env.NEXT_PUBLIC_API_URL; // works everywhere
 process.env.SECRET_KEY; // server components/API routes only
 ```
 
+**Note:** Next.js supports multiple env files — `.env`, `.env.local`, `.env.development`, `.env.production`. `.env.local` overrides `.env` and is usually added to `.gitignore` for secrets. Use `.env` for non-sensitive values shared across the team.
+
 ---
 
-## 14. Common Commands
+## 16. Common Commands
 
 | Command                      | What it does                      |
 | ---------------------------- | --------------------------------- |
@@ -449,7 +608,7 @@ process.env.SECRET_KEY; // server components/API routes only
 
 ---
 
-## 15. Quick Setup Checklist for New Projects
+## 17. Quick Setup Checklist for New Projects
 
 1. Run `npx create-next-app@latest project-name`
 2. Delete default boilerplate from `app/page.js` and `app/globals.css`
@@ -459,23 +618,27 @@ process.env.SECRET_KEY; // server components/API routes only
 6. Create `layout.js` in each route group with its own Header/Footer
 7. Create `src/services/` folder for API call functions
 8. Add `src/proxy.js` if you need route protection/auth redirects
-9. Add `.env.local` for API URLs and secrets
+9. Add `.env` for API URLs and secrets
 10. Install packages you need (`npm install axios react-toastify` etc.)
-11. Start building pages inside `app/` and components inside `components/`
+11. If using Redux: `npm install @reduxjs/toolkit react-redux`, create `src/reduxStore/` with `store.js` and slices, wrap layout with `<Provider>`
+12. Start building pages inside `app/` and components inside `components/`
 
 ---
 
-## 16. Naming Conventions
+## 18. Naming Conventions
 
 - **Page components:** PascalCase — `function Login()`, `function AboutUs()`, NOT `function page()`
 - **Files in `app/`:** always `page.js`, `layout.js` (lowercase, Next.js requirement)
 - **Component files:** PascalCase — `Header.jsx`, `ProductCard.jsx`
-- **Service files:** camelCase or PascalCase — `HomePageAPI.js`
+- **Service files:** camelCase — `homePageAPI.js`
+- **Redux slices:** camelCase — `loginSlice.jsx`, `cartSlice.jsx`
+- **Redux store file:** camelCase — `store.js`
+- **Non-component folders:** camelCase or kebab-case — `reduxStore/`, `services/`
 - **You don't need `import React`** — Next.js auto-imports it
 
 ---
 
-## 17. Confusing Parts Clarified
+## 19. Confusing Parts Clarified
 
 ### "Where does my component go?"
 
@@ -483,6 +646,7 @@ process.env.SECRET_KEY; // server components/API routes only
 - Is it a **reusable UI piece** (card, button, header)? --> `src/components/common/`
 - Is it a **layout wrapper**? --> `src/components/` (not inside `common/`)
 - Is it an **API call function**? --> `src/services/`
+- Is it **Redux store/slices**? --> `src/reduxStore/`
 - Is it **middleware/auth logic**? --> `src/proxy.js`
 
 ### "layout.js vs page.js?"
@@ -509,7 +673,7 @@ You forgot `"use client"` at the top of the file. Server Components can't use ho
 ### "Why is my env variable undefined?"
 
 - In browser/client component: variable MUST start with `NEXT_PUBLIC_`
-- You changed `.env.local`: restart the dev server (`npm run dev`)
+- You changed `.env` / `.env.local`: restart the dev server (`npm run dev`)
 
 ### "Can I have two page.js at the same level?"
 
@@ -530,3 +694,19 @@ In `src/services/`, NOT inside `app/`. The `app/` folder is only for routing. Se
 ### "Can I use toast.error in a service file?"
 
 No. Service files called from server components run on the server. `toast` is browser-only. Use `console.error` for server-side error logging. Handle toast notifications in your client components instead.
+
+### "Why is `<Provider>` throwing a Server Component error?"
+
+`<Provider>` from `react-redux` uses React context, which only works in Client Components. The component that wraps `<Provider>` must have `"use client"` at the top.
+
+### "Can I have more than one Redux store?"
+
+No. One app = one store. But you can have as many **slices** as you want. Each slice manages one piece of state (login, cart, user, etc.) and they all combine into the single store.
+
+### "Why am I getting a hydration mismatch with cookies?"
+
+`Cookies.get()` from `js-cookie` only works in the browser. On the server, it returns `undefined`. So server renders one thing, client renders another = hydration error. The app still works — it's just a console warning. To fix it properly, read cookies in a `useEffect` after the page loads, or use `cookies()` from `next/headers` in a server component.
+
+### "Where should Redux store files go?"
+
+In `src/reduxStore/`, NOT inside `app/`. The `app/` folder is only for routing files (`page.js`, `layout.js`, etc.).

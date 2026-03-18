@@ -1,5 +1,5 @@
 import Homepage from "@/components/website/Homepage";
-import { ladiesProducts, menProducts } from "@/services/HomePageAPI";
+import { ladiesProducts, menProducts } from "@/services/homePageAPI";
 
 export const metadata = {
   title: "Homepage",

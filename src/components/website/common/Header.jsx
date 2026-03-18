@@ -1,13 +1,18 @@
+import { login, logout } from "@/reduxStore/loginSlice";
 import Link from "next/link";
 import React from "react";
+import { useDispatch, useSelector } from "react-redux";
 
 export default function Header() {
+  const isLogin = useSelector((data) => data.login.isLogin);
+  const dispatch = useDispatch();
+
   return (
     <>
       <header>
         <nav className="bg-white border-gray-200 px-4 lg:px-6 py-2.5 dark:bg-gray-800">
           <div className="flex flex-wrap justify-between items-center mx-auto max-w-7xl">
-            <a href="https://flowbite.com" className="flex items-center">
+            <Link href="/" className="flex items-center">
               <img
                 src="https://flowbite.com/docs/images/logo.svg"
                 className="mr-3 h-6 sm:h-9"
@@ -16,20 +21,39 @@ export default function Header() {
               <span className="self-center text-xl font-semibold whitespace-nowrap dark:text-white">
                 Flowbite
               </span>
-            </a>
+            </Link>
             <div className="flex items-center lg:order-2">
-              <Link
+              {/* <Link
                 href="/login"
                 className="text-gray-800 dark:text-white hover:bg-gray-50 focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-sm px-4 lg:px-5 py-2 lg:py-2.5 mr-2 dark:hover:bg-gray-700 focus:outline-none dark:focus:ring-gray-800"
               >
                 Log in
-              </Link>
-              <a
+              </Link> */}
+              <button
                 href="#"
-                className="text-white bg-primary-700 hover:bg-primary-800 focus:ring-4 focus:ring-primary-300 font-medium rounded-lg text-sm px-4 lg:px-5 py-2 lg:py-2.5 mr-2 dark:bg-primary-600 dark:hover:bg-primary-700 focus:outline-none dark:focus:ring-primary-800"
+                className="text-white bg-indigo-700 hover:bg-indigo-800 focus:ring-4 focus:ring-primary-300 font-medium rounded-lg text-sm px-4 lg:px-5 py-2 lg:py-2.5 mr-2 dark:bg-indigo-600 dark:hover:bg-indigo-700 focus:outline-none dark:focus:ring-indigo-800"
               >
-                Get started
-              </a>
+                ViewCart(0)
+              </button>
+
+              {isLogin ? (
+                <button
+                  onClick={() => dispatch(logout())}
+                  href="#"
+                  className="text-white bg-indigo-700 hover:bg-indigo-800 focus:ring-4 focus:ring-primary-300 font-medium rounded-lg text-sm px-4 lg:px-5 py-2 lg:py-2.5 mr-2 dark:bg-indigo-600 dark:hover:bg-indigo-700 focus:outline-none dark:focus:ring-indigo-800"
+                >
+                  Logout
+                </button>
+              ) : (
+                <button
+                  onClick={() => dispatch(login())}
+                  href="#"
+                  className="text-white bg-indigo-700 hover:bg-indigo-800 focus:ring-4 focus:ring-primary-300 font-medium rounded-lg text-sm px-4 lg:px-5 py-2 lg:py-2.5 mr-2 dark:bg-indigo-600 dark:hover:bg-indigo-700 focus:outline-none dark:focus:ring-indigo-800"
+                >
+                  Login
+                </button>
+              )}
+
               <button
                 data-collapse-toggle="mobile-menu-2"
                 type="button"
