@@ -44,6 +44,8 @@ src/
 │   │   ├── page.js         # This group's homepage
 │   │   ├── about-us/
 │   │   │   └── page.js
+│   │   ├── cart/
+│   │   │   └── page.js     # Cart page route
 │   │   └── mens/
 │   │       └── [...slug]/
 │   │           └── page.js # Dynamic catch-all route
@@ -54,6 +56,7 @@ src/
 │   └── website/
 │       ├── CommonLayout.jsx  # Layout wrapper (not in common/)
 │       ├── Homepage.jsx
+│       ├── ViewCart.jsx       # Cart page component
 │       └── common/           # Reusable UI pieces
 │           ├── Header.jsx
 │           ├── Footer.jsx
@@ -361,6 +364,74 @@ export default function Header() {
 }
 ```
 
+### Cart Slice (with duplicate detection & quantity limit)
+
+The cart slice uses `findIndex` to check if a product already exists before adding:
+
+```jsx
+// src/reduxStore/cartSlice.jsx
+import { createSlice } from "@reduxjs/toolkit";
+import Cookies from "js-cookie";
+import { toast } from "react-toastify";
+
+const cart = Cookies.get("cart") ? JSON.parse(Cookies.get("cart")) : [];
+
+const initialState = {
+  cart_items: cart,
+};
+
+export const cartSlice = createSlice({
+  name: "cart",
+  initialState,
+  reducers: {
+    addToCart: (state, product) => {
+      const existingIndex = state.cart_items.findIndex(
+        (v) => v.id === product.payload.id,
+      );
+      if (existingIndex === -1) {
+        // Product not in cart — add it
+        const newProduct = {
+          id: product.payload.id,
+          name: product.payload.name,
+          image: product.payload.image,
+          price: product.payload.price,
+          quantity: 1,
+        };
+        state.cart_items.push(newProduct);
+        Cookies.set("cart", JSON.stringify(state.cart_items));
+        toast.success("Item added successfully!");
+      } else {
+        // Product exists — increase quantity (max 5)
+        if (state.cart_items[existingIndex].quantity < 5) {
+          state.cart_items[existingIndex].quantity += 1;
+          Cookies.set("cart", JSON.stringify(state.cart_items));
+          toast.success("Item quantity added");
+        } else {
+          toast.error("Order limit reached!");
+        }
+      }
+    },
+  },
+});
+
+export const { addToCart } = cartSlice.actions;
+export default cartSlice.reducer;
+```
+
+**How `findIndex` works for duplicate detection:**
+
+- `findIndex` returns the **index** of the first matching item, or `-1` if not found
+- `existingIndex === -1` → product is new → add it with quantity 1
+- `existingIndex >= 0` → product exists → increment quantity (up to max 5)
+- Unlike `forEach`, `findIndex` gives you the exact position to update the item directly
+
+**Why not use `forEach` for this?**
+
+- `forEach` always returns `undefined` — you can't get a result from it
+- If you use a variable inside `forEach` to track state, the last iteration overwrites previous ones
+- `forEach` cannot be broken early — `return` inside it only skips one iteration, it doesn't stop the loop
+- Use a `for` loop with `break` if you need early exit with a loop, or `findIndex`/`find`/`some` for searching
+
 ### Persisting State in Cookies
 
 `js-cookie` stores everything as a **string**. When saving arrays/objects, you must use `JSON.stringify()` to save and `JSON.parse()` to read:
@@ -510,7 +581,45 @@ export const metadata = {
 
 ---
 
-## 12. Navigation with `next/link`
+## 12. Cart Page & Navigation
+
+The cart page lives at `/cart` inside the `(website)` route group, so it gets the site's header and footer.
+
+```jsx
+// app/(website)/cart/page.js (server component — just renders the client component)
+import ViewCart from "@/components/website/ViewCart";
+
+export const metadata = {
+  title: "Cart",
+  description: "This is the cart page",
+};
+
+export default function page() {
+  return <ViewCart />;
+}
+```
+
+The Header shows a "ViewCart" button that links to `/cart` and displays the current cart item count:
+
+```jsx
+import Link from "next/link";
+import { useSelector } from "react-redux";
+
+const cart = useSelector((data) => data.cart.cart_items);
+
+<Link href="/cart">
+  <button>ViewCart({cart.length})</button>
+</Link>
+```
+
+**Key points:**
+- The cart page is a server component that renders a client component (`ViewCart`)
+- `cart.length` shows the number of unique products, not total quantity
+- The `<Link>` wrapper gives client-side navigation (no full page reload)
+
+---
+
+## 13. Navigation with `next/link`
 
 Use `<Link>` from `next/link` instead of `<a>` for internal navigation. It does client-side navigation (faster, no full page reload).
 
@@ -528,7 +637,7 @@ import Link from "next/link";
 
 ---
 
-## 13. CSS / Styling
+## 14. CSS / Styling
 
 ### Option 1: Tailwind CSS (recommended, already set up)
 
@@ -575,7 +684,7 @@ import styles from "./Button.module.css";
 
 ---
 
-## 14. Installing & Using Packages
+## 15. Installing & Using Packages
 
 ```bash
 npm install axios react-toastify
@@ -592,7 +701,7 @@ Remember: if the package needs browser features (like toast notifications), the 
 
 ---
 
-## 15. Environment Variables
+## 16. Environment Variables
 
 Create a `.env` file in the project root:
 
@@ -615,7 +724,7 @@ process.env.SECRET_KEY; // server components/API routes only
 
 ---
 
-## 16. Common Commands
+## 17. Common Commands
 
 | Command                      | What it does                      |
 | ---------------------------- | --------------------------------- |
@@ -627,7 +736,7 @@ process.env.SECRET_KEY; // server components/API routes only
 
 ---
 
-## 17. Quick Setup Checklist for New Projects
+## 18. Quick Setup Checklist for New Projects
 
 1. Run `npx create-next-app@latest project-name`
 2. Delete default boilerplate from `app/page.js` and `app/globals.css`
@@ -644,7 +753,7 @@ process.env.SECRET_KEY; // server components/API routes only
 
 ---
 
-## 18. Naming Conventions
+## 19. Naming Conventions
 
 - **Page components:** PascalCase — `function Login()`, `function AboutUs()`, NOT `function page()`
 - **Files in `app/`:** always `page.js`, `layout.js` (lowercase, Next.js requirement)
@@ -657,7 +766,7 @@ process.env.SECRET_KEY; // server components/API routes only
 
 ---
 
-## 19. Confusing Parts Clarified
+## 20. Confusing Parts Clarified
 
 ### "Where does my component go?"
 
@@ -733,3 +842,20 @@ In `src/reduxStore/`, NOT inside `app/`. The `app/` folder is only for routing f
 ### "Why am I getting `[object Obj]... is not valid JSON` error?"
 
 You saved an array/object to a cookie without `JSON.stringify()`. `Cookies.set("cart", myArray)` converts it to the string `"[object Object]"`. When you later try `JSON.parse("[object Object]")`, it crashes. Fix: clear the bad cookie from browser (DevTools → Application → Cookies → delete it), and use `JSON.stringify()` when saving and `JSON.parse()` when reading.
+
+### "Why is `forEach` bad for checking if an item exists?"
+
+`forEach` always returns `undefined` — you can't get a result from it. If you set a variable inside `forEach`, it gets overwritten on every iteration, so only the last item's comparison matters. Also, `forEach` cannot be stopped early — `return` inside it only skips one callback, it doesn't break the loop. Use `findIndex`, `find`, or `some` instead, or a `for` loop with `break`.
+
+### "What's the difference between `find`, `findIndex`, `some`, and `filter`?"
+
+| Method      | Returns                  | Stops early? | Use when                          |
+| ----------- | ------------------------ | ------------ | --------------------------------- |
+| `find`      | The matching item        | Yes          | You need the item itself          |
+| `findIndex` | The index of the match   | Yes          | You need the position to update   |
+| `some`      | `true` or `false`        | Yes          | You just need to know if it exists|
+| `filter`    | Array of all matches     | No           | You need all matching items       |
+
+### "Why does `!0` return `true` in JavaScript?"
+
+`0` is a **falsy** value in JavaScript. So `!0` is `true`, `!1` is `false`. This is a common bug when using `findIndex` — if the matching item is at index `0`, `!existingIndex` evaluates to `true`, which is the opposite of what you'd expect. Always compare `findIndex` results with `=== -1` instead of using `!` or truthiness checks.
