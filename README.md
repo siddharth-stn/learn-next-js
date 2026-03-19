@@ -494,6 +494,47 @@ const dispatch = useDispatch();
 
 Using a `type` string (`"minus"` / `"add"`) lets the reducer own the validation logic (min 1, max 5). The component just says "decrease this" or "increase this" — it doesn't need to know the limits.
 
+### Deleting a Cart Item
+
+The `deleteItem` reducer removes a single item from the cart using `splice`:
+
+```jsx
+// In the slice — deleteItem reducer
+deleteItem: (state, { payload }) => {
+  const { id } = payload;
+  const index = state.cart_items.findIndex((v) => v.id === id);
+  state.cart_items.splice(index, 1);
+  Cookies.set("cart", JSON.stringify(state.cart_items));
+  toast.success("Item removed from cart!");
+},
+```
+
+**Dispatching from ViewCart:**
+
+```jsx
+import { deleteItem } from "@/reduxStore/cartSlice";
+
+// Remove button
+<button onClick={() => dispatch(deleteItem({ id: item.id }))}>
+  Remove
+</button>
+```
+
+**How `splice` works:**
+
+- `splice(index, 1)` removes **1 item** starting at `index`
+- It mutates the array directly — normally bad practice, but Redux Toolkit uses **Immer** under the hood, so direct mutations in reducers are safe and expected
+- `findIndex` locates the item first, then `splice` removes it at that exact position
+
+**`splice` vs `filter` for removing items:**
+
+| Method   | Mutates original? | Returns              | Use in Redux Toolkit?     |
+| -------- | ----------------- | -------------------- | ------------------------- |
+| `splice` | Yes               | Array of removed items | Yes — Immer handles it   |
+| `filter` | No                | New array             | Yes — assign back to state |
+
+Both work in Redux Toolkit reducers. `splice` is more direct when you already have the index. `filter` is useful when you don't need the index: `state.cart_items = state.cart_items.filter((v) => v.id !== id)`.
+
 ### Persisting State in Cookies
 
 `js-cookie` stores everything as a **string**. When saving arrays/objects, you must use `JSON.stringify()` to save and `JSON.parse()` to read:
@@ -687,7 +728,7 @@ The `ViewCart` component reads cart items from the Redux store and displays them
 // src/components/website/ViewCart.jsx
 "use client";
 
-import { updateCart } from "@/reduxStore/cartSlice";
+import { updateCart, deleteItem } from "@/reduxStore/cartSlice";
 import React from "react";
 import { useDispatch, useSelector } from "react-redux";
 
@@ -712,6 +753,8 @@ export default function ViewCart() {
           <input value={item.quantity} />
           <button onClick={() => dispatch(updateCart({ id: item.id, type: "add" }))}>+</button>
           <p>${item.price * item.quantity}</p> {/* per-item total */}
+          {/* Remove item */}
+          <button onClick={() => dispatch(deleteItem({ id: item.id }))}>Remove</button>
         </div>
       ))}
 

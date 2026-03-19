@@ -60,11 +60,17 @@ export const cartSlice = createSlice({
         }
       }
     },
-    deleteCart: (state) => {},
+    deleteItem: (state, { payload }) => {
+      const { id } = payload;
+      const index = state.cart_items.findIndex((v) => v.id === id);
+      state.cart_items.splice(index, 1);
+      Cookies.set("cart", JSON.stringify(state.cart_items));
+      toast.success("Item removed from cart!");
+    },
   },
 });
 
 // Action creators are generated for each case reducer function
-export const { addToCart, updateCart, deleteCart } = cartSlice.actions;
+export const { addToCart, updateCart, deleteItem } = cartSlice.actions;
 
 export default cartSlice.reducer;

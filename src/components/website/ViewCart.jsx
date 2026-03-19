@@ -1,6 +1,6 @@
 "use client";
 
-import { updateCart } from "@/reduxStore/cartSlice";
+import { deleteItem, updateCart } from "@/reduxStore/cartSlice";
 import React from "react";
 import { useDispatch, useSelector } from "react-redux";
 
@@ -153,6 +153,9 @@ export default function ViewCart() {
                             </button>
 
                             <button
+                              onClick={() => {
+                                dispatch(deleteItem({ id: item.id }));
+                              }}
                               type="button"
                               className="inline-flex items-center text-sm font-medium text-red-600 hover:underline dark:text-red-500"
                             >
