@@ -20,7 +20,7 @@ export default function Header() {
                 alt="Flowbite Logo"
               />
               <span className="self-center text-xl font-semibold whitespace-nowrap dark:text-white">
-                Flowbite
+                Home
               </span>
             </Link>
             <div className="flex items-center lg:order-2">
@@ -30,13 +30,11 @@ export default function Header() {
               >
                 Log in
               </Link> */}
-              <button
-                href="#"
-                className="text-white bg-indigo-700 hover:bg-indigo-800 focus:ring-4 focus:ring-primary-300 font-medium rounded-lg text-sm px-4 lg:px-5 py-2 lg:py-2.5 mr-2 dark:bg-indigo-600 dark:hover:bg-indigo-700 focus:outline-none dark:focus:ring-indigo-800"
-              >
-                ViewCart({cart.length})
-              </button>
-
+              <Link href="/cart">
+                <button className="text-white bg-indigo-700 hover:bg-indigo-800 focus:ring-4 focus:ring-primary-300 font-medium rounded-lg text-sm px-4 lg:px-5 py-2 lg:py-2.5 mr-2 dark:bg-indigo-600 dark:hover:bg-indigo-700 focus:outline-none dark:focus:ring-indigo-800">
+                  ViewCart({cart.length})
+                </button>
+              </Link>
               {isLogin ? (
                 <button
                   onClick={() => dispatch(logout())}
