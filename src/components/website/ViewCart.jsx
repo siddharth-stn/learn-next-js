@@ -1,10 +1,12 @@
 "use client";
 
+import { updateCart } from "@/reduxStore/cartSlice";
 import React from "react";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 
 export default function ViewCart() {
   const cartItems = useSelector((data) => data.cart.cart_items);
+  const dispatch = useDispatch();
 
   const sum = cartItems.reduce((prev, curr) => {
     return prev + Number(curr.price * curr.quantity);
@@ -47,6 +49,11 @@ export default function ViewCart() {
                         <div className="flex items-center justify-between md:order-3 md:justify-end">
                           <div className="flex items-center">
                             <button
+                              onClick={() => {
+                                dispatch(
+                                  updateCart({ id: item.id, type: "minus" }),
+                                );
+                              }}
                               type="button"
                               id="decrement-button"
                               data-input-counter-decrement="counter-input"
@@ -78,6 +85,11 @@ export default function ViewCart() {
                               required
                             />
                             <button
+                              onClick={() => {
+                                dispatch(
+                                  updateCart({ id: item.id, type: "add" }),
+                                );
+                              }}
                               type="button"
                               id="increment-button"
                               data-input-counter-increment="counter-input"

@@ -38,7 +38,28 @@ export const cartSlice = createSlice({
         }
       }
     },
-    updateCart: (state) => {},
+    updateCart: (state, { payload }) => {
+      const { id, type } = payload;
+      if (type === "minus") {
+        const index = state.cart_items.findIndex((v) => v.id === id);
+        if (state.cart_items[index].quantity > 1) {
+          state.cart_items[index].quantity =
+            state.cart_items[index].quantity - 1;
+          Cookies.set("cart", JSON.stringify(state.cart_items));
+        } else {
+          toast.error("Item quantity can't be less than one!");
+        }
+      } else if (type === "add") {
+        const index = state.cart_items.findIndex((v) => v.id === id);
+        if (state.cart_items[index].quantity < 5) {
+          state.cart_items[index].quantity =
+            state.cart_items[index].quantity + 1;
+          Cookies.set("cart", JSON.stringify(state.cart_items));
+        } else {
+          toast.error("Item quantity can't be more than five!");
+        }
+      }
+    },
     deleteCart: (state) => {},
   },
 });

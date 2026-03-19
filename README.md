@@ -432,6 +432,68 @@ export default cartSlice.reducer;
 - `forEach` cannot be broken early — `return` inside it only skips one iteration, it doesn't stop the loop
 - Use a `for` loop with `break` if you need early exit with a loop, or `findIndex`/`find`/`some` for searching
 
+### Updating Cart Quantity (increment/decrement from ViewCart)
+
+The `updateCart` reducer handles both increment and decrement using a `type` field in the payload:
+
+```jsx
+// In the slice — updateCart reducer
+updateCart: (state, { payload }) => {
+  const { id, type } = payload;
+  if (type === "minus") {
+    const index = state.cart_items.findIndex((v) => v.id === id);
+    if (state.cart_items[index].quantity > 1) {
+      state.cart_items[index].quantity -= 1;
+      Cookies.set("cart", JSON.stringify(state.cart_items));
+    } else {
+      toast.error("Item quantity can't be less than one!");
+    }
+  } else if (type === "add") {
+    const index = state.cart_items.findIndex((v) => v.id === id);
+    if (state.cart_items[index].quantity < 5) {
+      state.cart_items[index].quantity += 1;
+      Cookies.set("cart", JSON.stringify(state.cart_items));
+    } else {
+      toast.error("Item quantity can't be more than five!");
+    }
+  }
+},
+```
+
+**Dispatching from ViewCart:**
+
+The component dispatches `updateCart` with `id` and `type` when the user clicks the +/- buttons:
+
+```jsx
+import { updateCart } from "@/reduxStore/cartSlice";
+import { useDispatch } from "react-redux";
+
+const dispatch = useDispatch();
+
+// Minus button
+<button onClick={() => dispatch(updateCart({ id: item.id, type: "minus" }))}>
+  -
+</button>
+
+// Plus button
+<button onClick={() => dispatch(updateCart({ id: item.id, type: "add" }))}>
+  +
+</button>
+```
+
+**How the data flows:**
+
+1. User clicks `-` button → `dispatch(updateCart({ id: 5, type: "minus" }))` is called
+2. Redux calls the `updateCart` reducer with `{ payload: { id: 5, type: "minus" } }`
+3. `{ payload }` destructures the action object — shorthand for `action.payload`
+4. `{ id, type }` destructures the payload — shorthand for `payload.id` and `payload.type`
+5. Reducer finds the item by `id`, checks the `type`, and updates quantity accordingly
+6. Cookie is updated to persist the change
+
+**Why use `type` instead of passing the new quantity directly?**
+
+Using a `type` string (`"minus"` / `"add"`) lets the reducer own the validation logic (min 1, max 5). The component just says "decrease this" or "increase this" — it doesn't need to know the limits.
+
 ### Persisting State in Cookies
 
 `js-cookie` stores everything as a **string**. When saving arrays/objects, you must use `JSON.stringify()` to save and `JSON.parse()` to read:
@@ -625,11 +687,13 @@ The `ViewCart` component reads cart items from the Redux store and displays them
 // src/components/website/ViewCart.jsx
 "use client";
 
+import { updateCart } from "@/reduxStore/cartSlice";
 import React from "react";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 
 export default function ViewCart() {
   const cartItems = useSelector((data) => data.cart.cart_items);
+  const dispatch = useDispatch();
 
   // Calculate total price (price × quantity for each item)
   const sum = cartItems.reduce((prev, curr) => {
@@ -643,7 +707,10 @@ export default function ViewCart() {
         <div key={index}>
           <img src={item.image} />
           <p>{item.name}</p>
+          {/* Quantity controls — dispatch updateCart with type */}
+          <button onClick={() => dispatch(updateCart({ id: item.id, type: "minus" }))}>-</button>
           <input value={item.quantity} />
+          <button onClick={() => dispatch(updateCart({ id: item.id, type: "add" }))}>+</button>
           <p>${item.price * item.quantity}</p> {/* per-item total */}
         </div>
       ))}
