@@ -617,6 +617,68 @@ const cart = useSelector((data) => data.cart.cart_items);
 - `cart.length` shows the number of unique products, not total quantity
 - The `<Link>` wrapper gives client-side navigation (no full page reload)
 
+### ViewCart Component (displaying cart data & calculating totals)
+
+The `ViewCart` component reads cart items from the Redux store and displays them with quantity and price. It uses `reduce` to calculate the total.
+
+```jsx
+// src/components/website/ViewCart.jsx
+"use client";
+
+import React from "react";
+import { useSelector } from "react-redux";
+
+export default function ViewCart() {
+  const cartItems = useSelector((data) => data.cart.cart_items);
+
+  // Calculate total price (price × quantity for each item)
+  const sum = cartItems.reduce((prev, curr) => {
+    return prev + Number(curr.price * curr.quantity);
+  }, 0);
+
+  return (
+    <section>
+      {/* Cart items list — loop over cartItems */}
+      {cartItems.map((item, index) => (
+        <div key={index}>
+          <img src={item.image} />
+          <p>{item.name}</p>
+          <input value={item.quantity} />
+          <p>${item.price * item.quantity}</p> {/* per-item total */}
+        </div>
+      ))}
+
+      {/* Order summary — shows calculated total */}
+      <p>Price total: ${sum}</p>
+    </section>
+  );
+}
+```
+
+**How `reduce` works for calculating totals:**
+
+```jsx
+const sum = cartItems.reduce((prev, curr) => {
+  return prev + Number(curr.price * curr.quantity);
+}, 0);
+```
+
+- `reduce` loops through the array and accumulates a single value
+- `prev` = the running total (starts at `0`, the second argument)
+- `curr` = the current item being processed
+- Each iteration adds `price × quantity` for that item to the running total
+- `Number()` ensures the multiplication result is treated as a number (in case `price` is a string from the API)
+- After all items are processed, `sum` holds the grand total
+
+**Example:** Cart has `[{price: 10, quantity: 2}, {price: 20, quantity: 1}]`
+- Iteration 1: `prev = 0`, `curr.price * curr.quantity = 20` → returns `20`
+- Iteration 2: `prev = 20`, `curr.price * curr.quantity = 20` → returns `40`
+- Final `sum` = `40`
+
+**Displaying per-item totals:**
+
+Each cart item shows `item.price * item.quantity` (line 105 in the actual file) — so a $10 item with quantity 3 shows "$30" next to it.
+
 ---
 
 ## 13. Navigation with `next/link`
@@ -855,6 +917,19 @@ You saved an array/object to a cookie without `JSON.stringify()`. `Cookies.set("
 | `findIndex` | The index of the match   | Yes          | You need the position to update   |
 | `some`      | `true` or `false`        | Yes          | You just need to know if it exists|
 | `filter`    | Array of all matches     | No           | You need all matching items       |
+
+### "How does `reduce` work?"
+
+`reduce` loops through an array and builds up a single value. It takes a callback with two parameters: the **accumulator** (running result) and the **current item**. The second argument to `reduce` is the starting value.
+
+```jsx
+// Sum all prices
+const total = items.reduce((prev, curr) => prev + curr.price, 0);
+//                          ^^^^  ^^^^                         ^
+//                      accumulator  current item        start value
+```
+
+If you forget the starting value (`0`), `reduce` uses the first array item as the initial `prev`, which can cause bugs if the array is empty (throws TypeError) or if items are objects (you'd be adding an object + a number).
 
 ### "Why does `!0` return `true` in JavaScript?"
 
